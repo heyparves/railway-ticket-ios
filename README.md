@@ -4,6 +4,20 @@ Rail is a native iOS app for searching, booking and managing intercity train tic
 
 The app is written in SwiftUI and SwiftData. Data is stored on the device: accounts, bookings and saved travellers live in a local store, and the train timetable and seat map come from built-in seed data. The data layer is defined by repository protocols, so a backend can be added later without changing the screens.
 
+## Screenshots
+
+| Search | Results | Seat selection |
+| :---: | :---: | :---: |
+| <img src="docs/screenshots/search.png" width="220" alt="Search"> | <img src="docs/screenshots/results.png" width="220" alt="Train results"> | <img src="docs/screenshots/seats.png" width="220" alt="Seat selection"> |
+
+| Seat map | Passengers | Payment |
+| :---: | :---: | :---: |
+| <img src="docs/screenshots/seat-map.png" width="220" alt="Coach seat map"> | <img src="docs/screenshots/passengers.png" width="220" alt="Passenger details"> | <img src="docs/screenshots/payment.png" width="220" alt="Payment"> |
+
+| Booking confirmed | My Trips | E-ticket |
+| :---: | :---: | :---: |
+| <img src="docs/screenshots/booked.png" width="220" alt="Booking confirmed"> | <img src="docs/screenshots/trips.png" width="220" alt="My Trips"> | <img src="docs/screenshots/ticket.png" width="220" alt="E-ticket with QR code"> |
+
 ## Features
 
 - **Account:** sign up, log in and log out. Passwords are hashed, and the session is kept in the Keychain.
