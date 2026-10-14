@@ -148,11 +148,9 @@ struct PaymentView: View {
             }
         } label: {
             VStack(spacing: Spacing.x1) {
-                Image(systemName: method.tileSymbol)
-                    .font(.title2)
-                    .symbolRenderingMode(.hierarchical)
-                    .foregroundStyle(isSelected ? AnyShapeStyle(.tint) : AnyShapeStyle(.secondary))
-                    .frame(height: 28)
+                PaymentBrandMark(method: method)
+                    .saturation(isSelected ? 1 : 0.85)
+                    .accessibilityHidden(true)
                 Text(method.shortTitle)
                     .font(.subheadline.weight(.semibold))
                     .foregroundStyle(.primary)
@@ -244,12 +242,27 @@ struct PaymentView: View {
 
 private extension PaymentMethod {
     var shortTitle: String { self == .card ? "Card" : title }
+}
 
-    var tileSymbol: String {
-        switch self {
-        case .bkash: "iphone.gen3"
-        case .nagad: "iphone.gen3.radiowaves.left.and.right"
-        case .card: "creditcard.fill"
+/// Brand logo for each payment method, on a white plate so dark-ink logos stay legible in dark mode.
+private struct PaymentBrandMark: View {
+    let method: PaymentMethod
+
+    private var assetName: String {
+        switch method {
+        case .bkash: "PayBkash"
+        case .nagad: "PayNagad"
+        case .card: "PayCard"
         }
+    }
+
+    var body: some View {
+        Image(assetName)
+            .resizable()
+            .scaledToFit()
+            .padding(5)
+            .frame(width: 60, height: 40)
+            .background(.white, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+            .shadow(color: .black.opacity(0.12), radius: 2, y: 1)
     }
 }
