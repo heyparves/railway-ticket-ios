@@ -25,6 +25,11 @@ enum BrandPalette {
     static let underframe = Color(red: 0.149, green: 0.125, blue: 0.122)
     static let buffer = Color(red: 0.290, green: 0.247, blue: 0.235)
     static let bufferFace = Color(red: 0.471, green: 0.329, blue: 0.282)
+    static let sleeper = Color(red: 0.239, green: 0.200, blue: 0.180)
+
+    // Night: livery dimmed toward moonlit blue, windows lit warm.
+    static let nightShade = Color(red: 0.50, green: 0.56, blue: 0.70)
+    static let windowLit = Color(red: 1.000, green: 0.820, blue: 0.478)  // #FFD17A
 }
 
 /// Navy-and-sand diesel in three-quarter view rolling out of a red sun on converging rails.
@@ -38,6 +43,13 @@ struct RailMark: View {
     var rails: CGFloat = 1
     var train: CGFloat = 1
     var headlight: CGFloat = 1
+    /// Dims the livery, lights the windows and throws a beam down the track.
+    var night = false
+    /// Sleepers streaming toward the viewer, one spacing per 0...1 cycle. Nil leaves plain rails
+    /// (icon, splash).
+    var trackPhase: CGFloat?
+    /// Points the engine rides above the rails, for a running bob.
+    var trainLift: CGFloat = 0
 
     var body: some View {
         let side = size
@@ -57,7 +69,18 @@ struct RailMark: View {
                 MarkPart(.horizon).fill(BrandPalette.deep.opacity(0.35))
             }
             railLayer(side: side)
+            if night {
+                // Light thrown ahead onto the track; the nose covers where it leaves the lamps.
+                // Outside the rail layer so the draw-in mask doesn't cut it off at the square's edge.
+                MarkPart(.headlightBeam)
+                    .fill(LinearGradient(colors: [Color.white.opacity(0.32), Color.white.opacity(0)],
+                                         startPoint: UnitPoint(x: MarkGeometry.centre, y: MarkGeometry.roof),
+                                         endPoint: UnitPoint(x: 0.0, y: 1.25)))
+                    .blur(radius: side * 0.02)
+                    .opacity(Double(headlight))
+            }
             trainLayer(side: side)
+                .offset(y: -trainLift)
                 .scaleEffect(0.12 + 0.88 * train, anchor: UnitPoint(x: MarkGeometry.vanish.x, y: MarkGeometry.vanish.y))
                 .opacity(Double(min(1, train * 3)))
         }
@@ -70,16 +93,47 @@ struct RailMark: View {
     private func railLayer(side: CGFloat) -> some View {
         ZStack {
             MarkPart(.ballast).fill(BrandPalette.deep.opacity(0.55))
+            if let trackPhase {
+                TrackSleepers(phase: trackPhase).fill(BrandPalette.sleeper.opacity(night ? 0.9 : 0.6))
+            }
             MarkPart(.rails).fill(BrandPalette.rail.opacity(0.9))
         }
         // Rails draw from the near end out to the vanishing point.
         .mask(alignment: .leading) {
-            // Tall enough for the rails a full-bleed host lets run on below the square.
-            Rectangle().frame(width: side * rails, height: side * 3)
+            // Tall enough for the rails a full-bleed host lets run on below the square, and
+            // reaching left past the square so the near ends aren't cut on its edge.
+            Rectangle().frame(width: side * (rails + 1), height: side * 3).offset(x: -side)
         }
     }
 
     private func trainLayer(side: CGFloat) -> some View {
+        ZStack {
+            trainBody
+                .colorMultiply(night ? BrandPalette.nightShade : .white)
+            if night {
+                Group {
+                    MarkPart(.coachWindows)
+                    MarkPart(.sideWindows)
+                }
+                .foregroundStyle(BrandPalette.windowLit.opacity(0.9))
+                .shadow(color: BrandPalette.windowLit.opacity(0.7), radius: side * 0.012)
+                MarkPart(.markerLamps)
+                    .fill(BrandPalette.amber)
+                    .shadow(color: BrandPalette.amber, radius: side * 0.015)
+            }
+
+            // Twin headlights in their housing on the roof line.
+            MarkPart(.headlightGlow)
+                .fill(Color.white.opacity(night ? 0.8 : 0.4))
+                .blur(radius: side * (night ? 0.04 : 0.025))
+                .scaleEffect(night ? 1.5 : 1, anchor: UnitPoint(x: MarkGeometry.centre, y: MarkGeometry.roof))
+                .opacity(Double(headlight))
+            MarkPart(.headlightHousing).fill(night ? BrandPalette.handrail : BrandPalette.steel)
+            MarkPart(.headlights).fill(Color.white)
+        }
+    }
+
+    private var trainBody: some View {
         ZStack {
             // Coach behind the engine.
             MarkPart(.coach).fill(BrandPalette.navySide.opacity(0.9))
@@ -109,14 +163,6 @@ struct RailMark: View {
             MarkPart(.tailLamps).fill(BrandPalette.red)
             MarkPart(.buffers).fill(BrandPalette.buffer)
             MarkPart(.bufferFaces).fill(BrandPalette.bufferFace)
-
-            // Twin headlights in their housing on the roof line.
-            MarkPart(.headlightGlow)
-                .fill(Color.white.opacity(0.4))
-                .blur(radius: side * 0.025)
-                .opacity(Double(headlight))
-            MarkPart(.headlightHousing).fill(BrandPalette.steel)
-            MarkPart(.headlights).fill(Color.white)
         }
     }
 }
@@ -168,7 +214,7 @@ struct MarkPart: Shape {
         case side, sideBand, sideWindows, sideWalkway, sideUnderframe, sideHandrail
         case front, chevron, frontHandrail, roundel, roundelRing, roundelGlyph, markerLamps
         case beam, tailLampPlate, tailLamps, pilot, pilotFacet, buffers, bufferFaces
-        case headlightHousing, headlights, headlightGlow
+        case headlightHousing, headlights, headlightGlow, headlightBeam
     }
 
     let kind: Kind
@@ -362,7 +408,49 @@ struct MarkPart: Shape {
 
         case .headlightGlow:
             return circle(G.centre, G.roof - 0.006, 0.06)
+
+        case .headlightBeam:
+            // Fans out from the lamps down over the near end of the track.
+            return poly([
+                CGPoint(x: G.centre - 0.03, y: G.roof),
+                CGPoint(x: G.centre + 0.03, y: G.roof),
+                CGPoint(x: 0.75, y: 1.35),
+                CGPoint(x: -0.55, y: 1.2),
+            ])
         }
+    }
+}
+
+/// Sleepers across the track, spaced evenly in depth so they bunch toward the vanishing point.
+/// Advancing `phase` through 0...1 moves every sleeper one spacing further away, as the ground
+/// slides back under an engine running toward the viewer; the loop is seamless.
+struct TrackSleepers: Shape {
+    var phase: CGFloat
+    var animatableData: CGFloat {
+        get { phase }
+        set { phase = newValue }
+    }
+
+    private typealias G = MarkGeometry
+    private static let count = 36
+    private static let spacing: CGFloat = 0.3
+    private static let thickness: CGFloat = 0.07
+
+    func path(in rect: CGRect) -> Path {
+        // A little wider than the rails on each side.
+        let left = G.lerp(G.nearRail, G.farRail, 1.16)
+        let right = G.lerp(G.farRail, G.nearRail, 1.16)
+        var path = Path()
+        for index in 0..<Self.count {
+            // Depth 1 is the near end of the rails; screen position runs 1 - 1/depth toward `vanish`.
+            let depth = 0.62 + Self.spacing * (CGFloat(index) + phase)
+            let near = 1 - 1 / depth
+            let far = 1 - 1 / (depth + Self.thickness)
+            path.addLines([G.lerp(left, G.vanish, near), G.lerp(right, G.vanish, near),
+                           G.lerp(right, G.vanish, far), G.lerp(left, G.vanish, far)])
+            path.closeSubpath()
+        }
+        return path.applying(CGAffineTransform(a: rect.width, b: 0, c: 0, d: rect.height, tx: rect.minX, ty: rect.minY))
     }
 }
 
