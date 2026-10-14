@@ -116,7 +116,7 @@ struct SplashView: View {
 }
 
 /// Flat cloud from overlapping circles on a rounded base, `scale` points wide.
-private struct CloudBank: View {
+struct CloudBank: View {
     let scale: CGFloat
 
     var body: some View {

@@ -13,7 +13,7 @@ enum DemoSeeder {
         guard ProcessInfo.processInfo.arguments.contains("-demo") else { return }
         UserDefaults.standard.set(true, forKey: AppStorageKey.hasCompletedOnboarding)
         if (try? await container.auth.logIn(email: email, password: password)) == nil {
-            _ = try? await container.auth.signUp(name: "Nusrat Jahan", email: email, phone: "01712345678", password: password)
+            _ = try? await container.auth.signUp(name: "Parves", email: email, phone: "01712345678", password: password)
         }
     }
 
@@ -43,8 +43,8 @@ enum DemoSeeder {
         let seats = Array(((try? await container.trains.coaches(for: offer)) ?? []).flatMap(\.seats).filter { !$0.isBooked }.prefix(2))
         var draft = BookingDraft(offer: offer, seats: seats)
         draft.passengers = seats.enumerated().map {
-            TicketPassenger(name: $0.offset == 0 ? user.name : "Arif Hossain", age: $0.offset == 0 ? 29 : 33,
-                            gender: $0.offset == 0 ? .female : .male, seatID: $0.element.id)
+            TicketPassenger(name: $0.offset == 0 ? user.name : "Arif Hossain", age: $0.offset == 0 ? 25 : 33,
+                            gender: .male, seatID: $0.element.id)
         }
         draft.contactPhone = user.phone
 
@@ -65,8 +65,8 @@ enum DemoSeeder {
         guard let offer = try? await container.trains.search(query).first(where: { !$0.isSoldOut }) else { return nil }
         let seats = ((try? await container.trains.coaches(for: offer)) ?? []).flatMap(\.seats).filter { !$0.isBooked }.prefix(2)
         let passengers = seats.enumerated().map {
-            TicketPassenger(name: $0.offset == 0 ? user.name : "Arif Hossain", age: $0.offset == 0 ? 29 : 33,
-                            gender: $0.offset == 0 ? .female : .male, seatID: $0.element.id)
+            TicketPassenger(name: $0.offset == 0 ? user.name : "Arif Hossain", age: $0.offset == 0 ? 25 : 33,
+                            gender: .male, seatID: $0.element.id)
         }
         let receipt = PaymentReceipt(method: .bkash, transactionID: "TXNDEMO\(Int.random(in: 1000...9999))", amount: 0)
         let request = BookingRequest(offer: offer, passengers: passengers, contactPhone: user.phone, payment: receipt)
