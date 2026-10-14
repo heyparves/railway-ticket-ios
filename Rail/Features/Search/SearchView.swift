@@ -48,22 +48,29 @@ struct SearchView: View {
 
     // MARK: Header
 
+    /// Greeting over the moving train scene, which runs full-bleed up under the status bar.
     private var header: some View {
-        HStack(alignment: .bottom) {
-            VStack(alignment: .leading, spacing: 2) {
-                Text(greeting)
-                    .font(.subheadline.weight(.medium))
-                    .foregroundStyle(.secondary)
-                Text("Where to next?")
-                    .font(.title.bold())
-                    .accessibilityAddTraits(.isHeader)
-            }
-            .accessibilityElement(children: .combine)
-            Spacer(minLength: Spacing.x1)
-            BrandLogo(size: 40)
+        VStack(alignment: .leading, spacing: 2) {
+            Text(greeting)
+                .font(.subheadline.weight(.medium))
+                .foregroundStyle(.white.opacity(0.75))
+            Text("Where to next?")
+                .font(.title.bold())
+                .foregroundStyle(.white)
+                .accessibilityAddTraits(.isHeader)
         }
+        .accessibilityElement(children: .combine)
         .padding(.top, Spacing.x1)
+        .frame(maxWidth: .infinity, minHeight: 272, alignment: .topLeading)
+        .background {
+            // Reaches well above the content so the sky fills the status bar and the top bounce.
+            RailHeroScene()
+                .padding(.horizontal, -Spacing.x2)
+                .padding(.top, -Self.heroOverscan)
+        }
     }
+
+    private static let heroOverscan: CGFloat = 240
 
     private var greeting: String {
         let hour = Calendar.current.component(.hour, from: .now)
@@ -318,8 +325,8 @@ private struct DayPill: View {
     }
 }
 
-/// Seat-type chip. Class name with its climate badge; when a train is known, the per-seat fare
-/// and a live free-seat count sit inside the chip so riders compare classes without opening one.
+/// Seat-type tile, read like a fare board: class code on top, per-seat fare as the headline and
+/// seats left underneath, so riders compare classes at a glance. Snowflake marks AC classes.
 struct SeatClassPill: View {
     let seatClass: SeatClass
     let isSelected: Bool
@@ -330,63 +337,54 @@ struct SeatClassPill: View {
     let action: () -> Void
     @ObserveInjection var inject
 
-    private var shape: RoundedRectangle { RoundedRectangle(cornerRadius: Radius.medium + 2, style: .continuous) }
+    private var shape: RoundedRectangle { RoundedRectangle(cornerRadius: Radius.medium, style: .continuous) }
     private var isSoldOut: Bool { available == 0 }
     private var isLow: Bool { (available ?? .max) < 20 }
 
+    // Selected flips to a solid accent tile: one decisive state, no outline-plus-tick.
+    private var ink: Color { isSelected ? .onAccent : .primary }
+    private var muted: Color { isSelected ? .onAccent.opacity(0.72) : .secondary }
+
     var body: some View {
         Button(action: action) {
-            VStack(alignment: .leading, spacing: Spacing.half + 2) {
-                HStack(spacing: Spacing.half + 2) {
-                    Image(systemName: seatClass.symbol)
-                        .font(.system(size: 11, weight: .bold))
-                        .foregroundStyle(isSelected ? AnyShapeStyle(Color.onAccent) : AnyShapeStyle(.tint))
-                        .frame(width: 22, height: 22)
-                        .background(isSelected ? AnyShapeStyle(.tint) : AnyShapeStyle(Color.accentColor.opacity(0.12)),
-                                    in: Circle())
-                    Text(seatClass.shortTitle)
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(.primary)
-                    if isSelected {
-                        Spacer(minLength: 0)
-                        Image(systemName: "checkmark")
-                            .font(.caption2.weight(.heavy))
-                            .foregroundStyle(.tint)
-                            .transition(.scale.combined(with: .opacity))
+            VStack(alignment: .leading, spacing: fare == nil ? 2 : Spacing.half) {
+                HStack(spacing: 3) {
+                    Text(seatClass.shortTitle.uppercased())
+                        .font(.caption2.weight(.bold))
+                        .tracking(0.6)
+                    if seatClass.isAirConditioned {
+                        Image(systemName: "snowflake")
+                            .font(.system(size: 8, weight: .black))
                     }
                 }
+                .foregroundStyle(fare == nil ? ink : muted)
 
-                if fare != nil || available != nil {
-                    HStack(alignment: .firstTextBaseline, spacing: Spacing.x1) {
-                        if let fare {
-                            Text(fare)
-                                .font(.system(.footnote, design: .rounded, weight: .bold))
-                                .monospacedDigit()
-                                .foregroundStyle(isSoldOut ? .secondary : .primary)
-                        }
-                        if let available {
-                            availabilityBadge(available)
-                        }
-                    }
+                if let fare {
+                    Text(fare)
+                        .font(.system(.title3, design: .rounded, weight: .bold))
+                        .monospacedDigit()
+                        .strikethrough(isSoldOut)
+                        .foregroundStyle(isSoldOut ? muted : ink)
+                    if let available { availabilityLine(available) }
                 } else {
                     Text(seatClass.isAirConditioned ? "Air-conditioned" : "Non-AC")
-                        .font(.caption2.weight(.medium))
-                        .foregroundStyle(.secondary)
+                        .font(.caption)
+                        .foregroundStyle(muted)
                 }
             }
             .lineLimit(1)
             .fixedSize(horizontal: true, vertical: false)
             .padding(.horizontal, Spacing.x1 + Spacing.half)
             .padding(.vertical, Spacing.x1 + 2)
-            .frame(minWidth: 104, alignment: .leading)
-            .background(isSelected ? AnyShapeStyle(Color.accentColor.opacity(0.1)) : AnyShapeStyle(Color.well), in: shape)
-            .overlay(shape.strokeBorder(isSelected ? AnyShapeStyle(.tint) : AnyShapeStyle(Color.clear), lineWidth: 1.5))
+            .frame(minWidth: 92, alignment: .leading)
+            .background(isSelected ? AnyShapeStyle(.tint) : AnyShapeStyle(Color.well), in: shape)
             .contentShape(shape)
-            .opacity(isEnabled ? 1 : 0.5)
+            .opacity(isEnabled ? 1 : 0.55)
         }
         .buttonStyle(.pressable)
         .disabled(!isEnabled)
         .animation(.snappy(duration: 0.2), value: isSelected)
+        .sensoryFeedback(.selection, trigger: isSelected) { _, new in new }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(seatClass.title)
         .accessibilityValue(accessibilityValue)
@@ -395,20 +393,14 @@ struct SeatClassPill: View {
         .enableInjection()
     }
 
-    /// Dot plus count: tint when plenty, orange when running low, grey when gone.
-    private func availabilityBadge(_ count: Int) -> some View {
-        let color: Color = isSoldOut ? .secondary : isLow ? .orange : .accentColor
-        return HStack(spacing: 3) {
-            Circle().fill(color).frame(width: 6, height: 6)
-            Text(isSoldOut ? "Sold out" : "\(count) free")
-                .font(.caption2.weight(.semibold))
-                .monospacedDigit()
-                .contentTransition(.numericText(value: Double(count)))
-        }
-        .foregroundStyle(color)
-        .padding(.horizontal, 6)
-        .padding(.vertical, 2)
-        .background(color.opacity(0.12), in: Capsule())
+    /// Plain count, coloured only when it matters: orange when running low.
+    private func availabilityLine(_ count: Int) -> some View {
+        let urgent = isLow && !isSoldOut && !isSelected
+        return Text(isSoldOut ? "Sold out" : isLow ? "Only \(count) left" : "\(count) left")
+            .font(.caption.weight(urgent ? .semibold : .medium))
+            .monospacedDigit()
+            .contentTransition(.numericText(value: Double(count)))
+            .foregroundStyle(urgent ? Color.orange : muted)
     }
 
     private var accessibilityValue: String {
