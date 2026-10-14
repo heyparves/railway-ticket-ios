@@ -46,7 +46,8 @@ final class PassengerDetailsViewModel {
 
     var phoneError: String? { contactPhone.isEmpty || Validation.isMobile(contactPhone) ? nil : "Use an 11-digit number starting with 01." }
     var canContinue: Bool { entries.allSatisfy(\.isValid) && Validation.isMobile(contactPhone) }
-    var hasUnsavedEntries: Bool { entries.contains { $0.isComplete && $0.savedPassengerID == nil } }
+    /// Companions only; the lead is always remembered on the account.
+    var hasUnsavedEntries: Bool { companions.contains { $0.isComplete && $0.savedPassengerID == nil } }
 
     func load(user: User?) async {
         guard !didLoad, let user else { return }
@@ -115,10 +116,13 @@ final class PassengerDetailsViewModel {
         let passengers = entries.map {
             TicketPassenger(name: $0.name.trimmed, age: $0.ageValue, gender: $0.gender, seatID: $0.seat.id)
         }
-        if saveNewPassengers, let user {
-            for entry in entries where entry.isComplete && entry.savedPassengerID == nil {
-                guard let age = entry.ageValue, let gender = entry.gender else { continue }
-                try? await repository.save(Passenger(name: entry.name.trimmed, age: age, gender: gender), for: user)
+        if let user {
+            await saveLead(for: user)
+            if saveNewPassengers {
+                for entry in companions where entry.isComplete && entry.savedPassengerID == nil {
+                    guard let age = entry.ageValue, let gender = entry.gender else { continue }
+                    try? await repository.save(Passenger(name: entry.name.trimmed, age: age, gender: gender), for: user)
+                }
             }
             saved = (try? await repository.passengers(for: user)) ?? saved
             relinkSavedPassengers()
@@ -127,6 +131,16 @@ final class PassengerDetailsViewModel {
         next.passengers = passengers
         next.contactPhone = contactPhone.trimmed
         return next
+    }
+
+    /// Keeps the account holder's saved record in step with the lead card, updating it in place
+    /// (never duplicating) so their age and gender prefill on the next booking.
+    private func saveLead(for user: User) async {
+        guard let lead, lead.isComplete, let age = lead.ageValue, let gender = lead.gender else { return }
+        let existing = saved.first(where: isAccountHolder)
+        if let existing, existing.age == age, existing.gender == gender { return }
+        let me = Passenger(id: existing?.id ?? UUID(), name: lead.name.trimmed, age: age, gender: gender)
+        try? await repository.save(me, for: user)
     }
 
     /// After saving, mark entries as linked so going back and forth doesn't duplicate them.
