@@ -6,9 +6,9 @@ The app is written in SwiftUI and SwiftData. Data is stored on the device: accou
 
 ## Screenshots
 
-| Search | Results | Seat selection |
+| Home | Results | Seat selection |
 | :---: | :---: | :---: |
-| <img src="docs/screenshots/search.png" width="220" alt="Search"> | <img src="docs/screenshots/results.png" width="220" alt="Train results"> | <img src="docs/screenshots/seats.png" width="220" alt="Seat selection"> |
+| <img src="docs/screenshots/search.png" width="220" alt="Home screen"> | <img src="docs/screenshots/results.png" width="220" alt="Train results"> | <img src="docs/screenshots/seats.png" width="220" alt="Seat selection"> |
 
 | Seat map | Passengers | Payment |
 | :---: | :---: | :---: |
